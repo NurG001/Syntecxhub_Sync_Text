@@ -140,7 +140,7 @@ const Dashboard = ({ socket, username, logout }) => {
       <div className={`${mobileView === "list" ? "flex" : "hidden"} md:flex w-full md:w-64 bg-black/30 border-r border-white/10 flex-col z-20`}>
         <div className="p-6 border-b border-white/10 flex justify-between items-center">
             <div>
-                <h2 className="text-xl font-bold text-white tracking-wide">SyntecX Hub</h2>
+                <h2 className="text-xl font-bold text-white tracking-wide">SyncText</h2>
                 <div className="text-xs text-gray-400 mt-1">Logged in as {username}</div>
             </div>
             <button onClick={logout} className="md:hidden text-red-400 p-2">
