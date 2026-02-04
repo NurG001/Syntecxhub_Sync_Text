@@ -3,7 +3,7 @@ import { useState, useEffect } from "react";
 import Auth from "./Auth";
 import Dashboard from "./Dashboard";
 
-const socket = io.connect("http://localhost:3001");
+const socket = io.connect(import.meta.env.VITE_SERVER_URL || "http://localhost:3001");
 
 function App() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
