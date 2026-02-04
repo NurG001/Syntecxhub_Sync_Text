@@ -12,9 +12,83 @@ const User = require('./models/User');
 const Room = require('./models/Room');
 
 const app = express();
-app.use(cors());
+
+// Allow connections from both your local test and your deployed frontend
+app.use(cors({
+    origin: ["http://localhost:5173", "http://localhost:5174", process.env.CLIENT_URL], 
+    methods: ["GET", "POST"]
+}));
+
 app.use(express.json());
 
+// === NEW: SERVER STATUS PAGE ===
+// This fixes the "Cannot GET /" error by serving a nice HTML page
+app.get("/", (req, res) => {
+    res.send(`
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <title>SyncText Server</title>
+          <style>
+            body {
+              background-color: #0f172a;
+              color: white;
+              font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+              display: flex;
+              justify-content: center;
+              align-items: center;
+              height: 100vh;
+              margin: 0;
+            }
+            .container {
+              text-align: center;
+              padding: 50px;
+              background: rgba(255, 255, 255, 0.05);
+              border-radius: 20px;
+              border: 1px solid rgba(255, 255, 255, 0.1);
+              box-shadow: 0 20px 50px rgba(0,0,0,0.5);
+              backdrop-filter: blur(10px);
+            }
+            h1 { font-size: 2.5rem; margin-bottom: 10px; }
+            .status {
+              color: #4ade80; 
+              font-weight: bold;
+              font-size: 1.2rem;
+              display: flex;
+              align-items: center;
+              justify-content: center;
+              gap: 10px;
+            }
+            .dot {
+              width: 10px;
+              height: 10px;
+              background-color: #4ade80;
+              border-radius: 50%;
+              box-shadow: 0 0 10px #4ade80;
+              animation: pulse 2s infinite;
+            }
+            @keyframes pulse {
+              0% { opacity: 1; }
+              50% { opacity: 0.5; }
+              100% { opacity: 1; }
+            }
+          </style>
+        </head>
+        <body>
+          <div class="container">
+            <h1>SyncText Server</h1>
+            <div class="status">
+              <div class="dot"></div>
+              System Operational
+            </div>
+            <p style="color: #94a3b8; margin-top: 20px;">Ready to accept Socket.io connections</p>
+          </div>
+        </body>
+      </html>
+    `);
+});
+
+// === DATABASE CONNECTION ===
 mongoose.connect(process.env.MONGO_URI)
     .then(() => console.log("CONNECTED TO MONGODB ATLAS"))
     .catch((err) => console.log("MongoDB Error:", err));
@@ -45,7 +119,10 @@ app.post('/login', async (req, res) => {
 // === SERVER SETUP ===
 const server = http.createServer(app);
 const io = new Server(server, {
-    cors: { origin: "http://localhost:5174", methods: ["GET", "POST"] }
+    cors: {
+        origin: "*", // Allow connections from anywhere (easiest for deployment)
+        methods: ["GET", "POST"]
+    }
 });
 
 let onlineUsers = new Set();
@@ -53,14 +130,12 @@ let onlineUsers = new Set();
 io.on("connection", (socket) => {
     console.log(`Socket Connected: ${socket.id}`);
 
-    // === UPDATED: USER LOGIN ===
     socket.on("user_login", async (username) => {
         console.log(`${username} came online.`);
         socket.username = username;
         onlineUsers.add(username);
         io.emit("update_online_status", Array.from(onlineUsers));
 
-        // FIX: Fetch joined rooms from DB and send to frontend immediately
         try {
             const user = await User.findOne({ username });
             if (user) {
@@ -78,67 +153,31 @@ io.on("connection", (socket) => {
         }
     });
 
-    socket.on("join_room", async ({ room, username }) => {
-        socket.join(room);
-        
-        await User.findOneAndUpdate(
-            { username }, 
-            { $addToSet: { joinedRooms: room } } 
-        );
-
-        let roomData = await Room.findOne({ roomId: room });
-        if (!roomData) {
-            roomData = new Room({ roomId: room, members: [] });
-        }
-        if (!roomData.members.includes(username)) {
-            roomData.members.push(username);
-            await roomData.save();
-        }
-
-        const user = await User.findOne({ username });
-        socket.emit("update_my_rooms", user.joinedRooms); 
-        
-        io.to(room).emit("update_room_members", { room, members: roomData.members });
-
-        const history = await Message.find({ room });
-        socket.emit("load_history", history);
-    });
-
-// === NEW: LEAVE ROOM ===
     socket.on("leave_room", async ({ room, username }) => {
         try {
-            console.log(`${username} left room: ${room}`);
-
-            // 1. Remove room from User's list
-            await User.findOneAndUpdate(
-                { username },
-                { $pull: { joinedRooms: room } }
-            );
-
-            // 2. Remove user from Room's member list
-            const roomData = await Room.findOneAndUpdate(
-                { roomId: room },
-                { $pull: { members: username } },
-                { new: true } // Return updated doc
-            );
-
-            // 3. Socket leaves the channel
+            await User.findOneAndUpdate({ username }, { $pull: { joinedRooms: room } });
+            const roomData = await Room.findOneAndUpdate({ roomId: room }, { $pull: { members: username } }, { new: true });
             socket.leave(room);
-
-            // 4. Update the User's Sidebar
             const user = await User.findOne({ username });
             socket.emit("update_my_rooms", user ? user.joinedRooms : []);
-
-            // 5. Update the Room's Member List (for others still in there)
             if (roomData) {
                 io.to(room).emit("update_room_members", { room, members: roomData.members });
             }
-
-        } catch (err) {
-            console.log("Error leaving room:", err);
-        }
+        } catch (err) { console.log("Error leaving room:", err); }
     });
 
+    socket.on("join_room", async ({ room, username }) => {
+        socket.join(room);
+        await User.findOneAndUpdate({ username }, { $addToSet: { joinedRooms: room } });
+        let roomData = await Room.findOne({ roomId: room });
+        if (!roomData) { roomData = new Room({ roomId: room, members: [] }); }
+        if (!roomData.members.includes(username)) { roomData.members.push(username); await roomData.save(); }
+        const user = await User.findOne({ username });
+        socket.emit("update_my_rooms", user.joinedRooms); 
+        io.to(room).emit("update_room_members", { room, members: roomData.members });
+        const history = await Message.find({ room });
+        socket.emit("load_history", history);
+    });
 
     socket.on("send_message", async (data) => {
         const newMessage = new Message(data);
@@ -157,4 +196,7 @@ io.on("connection", (socket) => {
     });
 });
 
-server.listen(3001, () => console.log("SERVER RUNNING ON 3001"));
+const PORT = process.env.PORT || 3001;
+server.listen(PORT, () => {
+    console.log(`SERVER RUNNING ON PORT ${PORT}`);
+});
