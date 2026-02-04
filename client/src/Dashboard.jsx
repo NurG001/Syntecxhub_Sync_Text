@@ -24,15 +24,23 @@ const Dashboard = ({ socket, username, logout }) => {
   const bottomRef = useRef(null);
   const typingTimeoutRef = useRef(null);
 
-  // === CALCULATE TOTAL UNREAD (For Mobile Back Button) ===
+  // === CALCULATE TOTAL UNREAD ===
   const totalUnread = useMemo(() => {
     return Object.values(unreadCounts).reduce((a, b) => a + b, 0);
   }, [unreadCounts]);
 
-  // === INIT ===
+  // === INIT & LISTENERS ===
   useEffect(() => {
+    // 1. Identify User
     socket.emit("user_login", username);
 
+    // 2. Join the Room (If selected)
+    // Moving this INSIDE useEffect ensures listeners are ready before we join
+    if (activeRoom) {
+        socket.emit("join_room", { room: activeRoom, username });
+    }
+
+    // 3. Listeners
     socket.on("update_my_rooms", (rooms) => {
         setMyRooms(rooms);
         if (activeRoom && !rooms.includes(activeRoom)) {
@@ -47,7 +55,6 @@ const Dashboard = ({ socket, username, logout }) => {
       if (activeRoom === room) setRoomMembers(members);
     });
 
-    // === MESSAGE LISTENER ===
     socket.on("receive_message", (data) => {
         if (data.author !== username) {
             new Audio(receiveSoundFile).play().catch(()=>{});
@@ -64,10 +71,14 @@ const Dashboard = ({ socket, username, logout }) => {
         }
     });
 
-    socket.on("load_history", (history) => setMessages(history));
+    socket.on("load_history", (history) => {
+        setMessages(history); // Load real history from server
+    });
+
     socket.on("display_typing", (data) => setTyping(`${data.user} is typing...`));
     socket.on("hide_typing", () => setTyping(""));
 
+    // Cleanup listeners when room changes to avoid duplicates
     return () => socket.off(); 
   }, [socket, activeRoom, username]);
 
@@ -79,13 +90,13 @@ const Dashboard = ({ socket, username, logout }) => {
   const joinRoom = (roomToJoin) => {
     if(!roomToJoin) return;
     
+    // 1. Clear current messages IMMEDIATELY (Fixes the ghost message bug)
+    setMessages([]); 
+    
+    // 2. Set new room (This triggers the useEffect above to actually join)
     setActiveRoom(roomToJoin);
     setMobileView("chat"); 
-    
-    // Clear Badge for this room
     setUnreadCounts((prev) => ({ ...prev, [roomToJoin]: 0 }));
-
-    socket.emit("join_room", { room: roomToJoin, username });
     setNewRoomInput("");
   };
 
@@ -148,21 +159,21 @@ const Dashboard = ({ socket, username, logout }) => {
                         onClick={() => joinRoom(room)}
                         className={`group w-full text-left p-3 rounded-xl transition-all flex items-center justify-between cursor-pointer ${activeRoom === room ? "bg-blue-600 shadow-lg shadow-blue-500/30" : "hover:bg-white/5 text-gray-400"}`}
                     >
-                        {/* Room Name with Truncate */}
+                        {/* Room Name */}
                         <div className="flex items-center gap-3 overflow-hidden min-w-0">
                             <span className="text-lg opacity-50 flex-shrink-0">#</span>
                             <span className="font-medium truncate">{room}</span>
                         </div>
 
                         <div className="flex items-center gap-2 flex-shrink-0">
-                            {/* === UNREAD BADGE === */}
+                            {/* Unread Badge */}
                             {unreadCounts[room] > 0 && (
                                 <div className="bg-red-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-full shadow-lg shadow-red-500/20 animate-pulse whitespace-nowrap">
                                     {unreadCounts[room] > 99 ? "99+" : unreadCounts[room]}
                                 </div>
                             )}
 
-                            {/* LEAVE BUTTON */}
+                            {/* Leave Button */}
                             <button 
                                 onClick={(e) => leaveRoom(e, room)}
                                 className="text-gray-400 hover:text-red-400 md:opacity-0 md:group-hover:opacity-100 transition-opacity p-1"
@@ -196,13 +207,11 @@ const Dashboard = ({ socket, username, logout }) => {
                 {/* Header */}
                 <div className="h-16 border-b border-white/10 flex items-center justify-between px-4 md:px-6 bg-black/20 backdrop-blur-md z-10">
                     <div className="flex items-center gap-3">
-                        
-                        {/* === MOBILE BACK BUTTON (WITH BADGE) === */}
                         <button onClick={() => setMobileView("list")} className="md:hidden text-gray-400 hover:text-white relative p-1">
                             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-6 h-6">
                               <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5" />
                             </svg>
-                            {/* The DOT that tells you to go back! */}
+                            {/* Mobile Unread Dot */}
                             {totalUnread > 0 && (
                                 <span className="absolute top-0 right-0 flex h-3 w-3">
                                   <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
@@ -222,6 +231,7 @@ const Dashboard = ({ socket, username, logout }) => {
                     </button>
                 </div>
 
+                {/* Messages */}
                 <div className="flex-1 overflow-y-auto p-4 md:p-6 space-y-4 custom-scrollbar">
                     {messages.map((msg, idx) => {
                         const isMe = msg.author === username;
@@ -237,6 +247,7 @@ const Dashboard = ({ socket, username, logout }) => {
                     <div ref={bottomRef} />
                 </div>
 
+                {/* Input */}
                 <div className="p-3 md:p-4 bg-black/20 border-t border-white/10">
                     {typing && <div className="text-xs text-blue-400 mb-2 animate-pulse">{typing}</div>}
                     <div className="relative flex items-center">
