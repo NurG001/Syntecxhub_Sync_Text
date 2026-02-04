@@ -13,16 +13,23 @@ const Room = require('./models/Room');
 
 const app = express();
 
-// Allow connections from both your local test and your deployed frontend
+// === CORS CONFIGURATION (THE FIX) ===
+// We explicitly list the allowed domains to prevent CORS errors
+const allowedOrigins = [
+    "http://localhost:5173", 
+    "http://localhost:5174",
+    "https://sync-text.vercel.app" // <--- Your LIVE Vercel Frontend
+];
+
 app.use(cors({
-    origin: ["http://localhost:5173", "http://localhost:5174", process.env.CLIENT_URL], 
-    methods: ["GET", "POST"]
+    origin: allowedOrigins,
+    methods: ["GET", "POST"],
+    credentials: true
 }));
 
 app.use(express.json());
 
-// === NEW: SERVER STATUS PAGE ===
-// This fixes the "Cannot GET /" error by serving a nice HTML page
+// === SERVER STATUS PAGE ===
 app.get("/", (req, res) => {
     res.send(`
       <!DOCTYPE html>
@@ -30,58 +37,17 @@ app.get("/", (req, res) => {
         <head>
           <title>SyncText Server</title>
           <style>
-            body {
-              background-color: #0f172a;
-              color: white;
-              font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-              display: flex;
-              justify-content: center;
-              align-items: center;
-              height: 100vh;
-              margin: 0;
-            }
-            .container {
-              text-align: center;
-              padding: 50px;
-              background: rgba(255, 255, 255, 0.05);
-              border-radius: 20px;
-              border: 1px solid rgba(255, 255, 255, 0.1);
-              box-shadow: 0 20px 50px rgba(0,0,0,0.5);
-              backdrop-filter: blur(10px);
-            }
-            h1 { font-size: 2.5rem; margin-bottom: 10px; }
-            .status {
-              color: #4ade80; 
-              font-weight: bold;
-              font-size: 1.2rem;
-              display: flex;
-              align-items: center;
-              justify-content: center;
-              gap: 10px;
-            }
-            .dot {
-              width: 10px;
-              height: 10px;
-              background-color: #4ade80;
-              border-radius: 50%;
-              box-shadow: 0 0 10px #4ade80;
-              animation: pulse 2s infinite;
-            }
-            @keyframes pulse {
-              0% { opacity: 1; }
-              50% { opacity: 0.5; }
-              100% { opacity: 1; }
-            }
+            body { background-color: #0f172a; color: white; font-family: sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; }
+            .container { text-align: center; padding: 50px; background: rgba(255, 255, 255, 0.05); border-radius: 20px; backdrop-filter: blur(10px); }
+            .status { color: #4ade80; font-weight: bold; display: flex; align-items: center; justify-content: center; gap: 10px; }
+            .dot { width: 10px; height: 10px; background-color: #4ade80; border-radius: 50%; box-shadow: 0 0 10px #4ade80; animation: pulse 2s infinite; }
+            @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.5; } 100% { opacity: 1; } }
           </style>
         </head>
         <body>
           <div class="container">
             <h1>SyncText Server</h1>
-            <div class="status">
-              <div class="dot"></div>
-              System Operational
-            </div>
-            <p style="color: #94a3b8; margin-top: 20px;">Ready to accept Socket.io connections</p>
+            <div class="status"><div class="dot"></div>System Operational</div>
           </div>
         </body>
       </html>
@@ -118,10 +84,13 @@ app.post('/login', async (req, res) => {
 
 // === SERVER SETUP ===
 const server = http.createServer(app);
+
+// === SOCKET SETUP (Uses same CORS list) ===
 const io = new Server(server, {
     cors: {
-        origin: "*", // Allow connections from anywhere (easiest for deployment)
-        methods: ["GET", "POST"]
+        origin: allowedOrigins, 
+        methods: ["GET", "POST"],
+        credentials: true
     }
 });
 
