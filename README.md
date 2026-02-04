@@ -1,5 +1,5 @@
 # SyncText
-![SyncText Hero Banner](screenshots/hero-banner.png)
+![SyncText Hero Banner](https://raw.githubusercontent.com/NurG001/mine/refs/heads/main/project%20img/chat-app/banner.jpg)
 
 > **Real-time collaboration and messaging platform built for the modern web.** > SyncText is a full-stack MERN application featuring instant messaging, room management, and a seamless cross-device experience.
 
@@ -27,12 +27,12 @@ Experience the app live: **[https://sync-text.vercel.app](https://sync-text.verc
 
 | **Modern Authentication** | **Real-Time Dashboard** |
 |:---:|:---:|
-| <img src="screenshots/login-desktop.png" width="400" alt="Login Page"> | <img src="screenshots/dashboard-desktop.png" width="400" alt="Dashboard"> |
+| <img src="https://raw.githubusercontent.com/NurG001/mine/refs/heads/main/project%20img/chat-app/auth.png" width="400" alt="Login Page"> | <img src="https://raw.githubusercontent.com/NurG001/mine/refs/heads/main/project%20img/chat-app/dasboard_main.png" width="400" alt="Dashboard"> |
 | *Split-screen design with glassmorphism effects* | *Persistent rooms and unread message indicators* |
 
 | **Immersive Chat Experience** |
 |:---:|
-| <img src="screenshots/chat-desktop.png" width="850" alt="Chat Interface"> |
+| <img src="https://raw.githubusercontent.com/NurG001/mine/refs/heads/main/project%20img/chat-app/dashboard.png" width="850" alt="Chat Interface"> |
 | *Rich features including typing indicators, emojis, and sound effects* |
 
 ---
@@ -42,7 +42,7 @@ SyncText is fully optimized for mobile devices with an app-like navigation flow.
 
 | **Room List** | **Active Chat** | **Member Details** |
 |:---:|:---:|:---:|
-| <img src="screenshots/mobile-list.png" width="250" alt="Mobile Room List"> | <img src="screenshots/mobile-chat.png" width="250" alt="Mobile Chat View"> | <img src="screenshots/mobile-members.png" width="250" alt="Mobile Members Overlay"> |
+| <img src="https://raw.githubusercontent.com/NurG001/mine/refs/heads/main/project%20img/chat-app/dashboard_mobile2.png" width="250" alt="Mobile Room List"> | <img src="https://raw.githubusercontent.com/NurG001/mine/refs/heads/main/project%20img/chat-app/dashboard_mobile.png" width="250" alt="Mobile Chat View"> | <img src="https://raw.githubusercontent.com/NurG001/mine/refs/heads/main/project%20img/chat-app/dashboard_mobile3.png" width="250" alt="Mobile Members Overlay"> |
 | *Clean list view with unread badges* | *Full-screen chat with back navigation* | *Slide-over overlay for member info* |
 
 ---
