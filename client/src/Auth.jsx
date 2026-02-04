@@ -5,6 +5,10 @@ const Auth = ({ username, setUsername, onLoginSuccess }) => {
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
 
+  // === FIX FOR DEPLOYMENT ===
+  // Use the environment variable if available, otherwise fallback to localhost
+  const API_URL = import.meta.env.VITE_SERVER_URL || "http://localhost:3001";
+
   const handleAuth = async () => {
     if (!username || !password) return;
     
@@ -12,7 +16,8 @@ const Auth = ({ username, setUsername, onLoginSuccess }) => {
     const endpoint = isLoginMode ? "/login" : "/register";
     
     try {
-      const response = await fetch(`http://localhost:3001${endpoint}`, {
+      // Use API_URL here instead of hardcoded localhost
+      const response = await fetch(`${API_URL}${endpoint}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ username, password }),
@@ -32,6 +37,7 @@ const Auth = ({ username, setUsername, onLoginSuccess }) => {
       }
     } catch (error) {
       console.error("Auth Error:", error);
+      alert("Connection failed. Please check if the server is running.");
     } finally {
       setLoading(false);
     }
