@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import EmojiPicker from 'emoji-picker-react';
 import sentSoundFile from '/sent.mp3'; 
 import receiveSoundFile from '/receive.mp3';
@@ -11,7 +11,7 @@ const Dashboard = ({ socket, username, logout }) => {
   const [onlineGlobal, setOnlineGlobal] = useState([]);
   const [mobileView, setMobileView] = useState("list"); 
   
-  // === NEW: UNREAD COUNTS STATE ===
+  // Unread Counts State
   const [unreadCounts, setUnreadCounts] = useState({}); 
 
   // Chat States
@@ -23,6 +23,11 @@ const Dashboard = ({ socket, username, logout }) => {
 
   const bottomRef = useRef(null);
   const typingTimeoutRef = useRef(null);
+
+  // === CALCULATE TOTAL UNREAD (For Mobile Back Button) ===
+  const totalUnread = useMemo(() => {
+    return Object.values(unreadCounts).reduce((a, b) => a + b, 0);
+  }, [unreadCounts]);
 
   // === INIT ===
   useEffect(() => {
@@ -42,18 +47,15 @@ const Dashboard = ({ socket, username, logout }) => {
       if (activeRoom === room) setRoomMembers(members);
     });
 
-    // === UPDATED MESSAGE LISTENER ===
+    // === MESSAGE LISTENER ===
     socket.on("receive_message", (data) => {
-        // 1. Play Sound (Always play if it's not me)
         if (data.author !== username) {
             new Audio(receiveSoundFile).play().catch(()=>{});
         }
 
-        // 2. If message is for the ACTIVE room, show it
         if (data.room === activeRoom) {
             setMessages((prev) => [...prev, data]);
         } 
-        // 3. If message is for ANOTHER room, increment badge
         else {
             setUnreadCounts((prev) => ({
                 ...prev,
@@ -80,7 +82,7 @@ const Dashboard = ({ socket, username, logout }) => {
     setActiveRoom(roomToJoin);
     setMobileView("chat"); 
     
-    // === CLEAR UNREAD BADGE ===
+    // Clear Badge for this room
     setUnreadCounts((prev) => ({ ...prev, [roomToJoin]: 0 }));
 
     socket.emit("join_room", { room: roomToJoin, username });
@@ -127,7 +129,7 @@ const Dashboard = ({ socket, username, logout }) => {
       <div className={`${mobileView === "list" ? "flex" : "hidden"} md:flex w-full md:w-64 bg-black/30 border-r border-white/10 flex-col z-20`}>
         <div className="p-6 border-b border-white/10 flex justify-between items-center">
             <div>
-                <h2 className="text-xl font-bold text-white tracking-wide">SyncText</h2>
+                <h2 className="text-xl font-bold text-white tracking-wide">SyntecX Hub</h2>
                 <div className="text-xs text-gray-400 mt-1">Logged in as {username}</div>
             </div>
             <button onClick={logout} className="md:hidden text-red-400 p-2">
@@ -146,15 +148,16 @@ const Dashboard = ({ socket, username, logout }) => {
                         onClick={() => joinRoom(room)}
                         className={`group w-full text-left p-3 rounded-xl transition-all flex items-center justify-between cursor-pointer ${activeRoom === room ? "bg-blue-600 shadow-lg shadow-blue-500/30" : "hover:bg-white/5 text-gray-400"}`}
                     >
-                        <div className="flex items-center gap-3 overflow-hidden">
-                            <span className="text-lg opacity-50">#</span>
+                        {/* Room Name with Truncate */}
+                        <div className="flex items-center gap-3 overflow-hidden min-w-0">
+                            <span className="text-lg opacity-50 flex-shrink-0">#</span>
                             <span className="font-medium truncate">{room}</span>
                         </div>
 
-                        <div className="flex items-center gap-2">
-                            {/* === RED BADGE (Shows only if count > 0) === */}
+                        <div className="flex items-center gap-2 flex-shrink-0">
+                            {/* === UNREAD BADGE === */}
                             {unreadCounts[room] > 0 && (
-                                <div className="bg-red-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-full shadow-lg shadow-red-500/20 animate-pulse">
+                                <div className="bg-red-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-full shadow-lg shadow-red-500/20 animate-pulse whitespace-nowrap">
                                     {unreadCounts[room] > 99 ? "99+" : unreadCounts[room]}
                                 </div>
                             )}
@@ -162,7 +165,7 @@ const Dashboard = ({ socket, username, logout }) => {
                             {/* LEAVE BUTTON */}
                             <button 
                                 onClick={(e) => leaveRoom(e, room)}
-                                className="text-gray-400 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-opacity p-1"
+                                className="text-gray-400 hover:text-red-400 md:opacity-0 md:group-hover:opacity-100 transition-opacity p-1"
                             >
                                 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-4 h-4">
                                     <path fillRule="evenodd" d="M16.5 4.478v.227a48.816 48.816 0 013.878.512.75.75 0 11-.256 1.478l-.209-.035-1.005 13.07a3 3 0 01-2.991 2.77H8.084a3 3 0 01-2.991-2.77L4.087 6.66l-.209.035a.75.75 0 01-.256-1.478A48.567 48.567 0 017.5 4.705v-.227c0-1.564 1.213-2.9 2.816-2.951a52.662 52.662 0 013.369 0c1.603.051 2.815 1.387 2.815 2.951zm-6.136-1.452a51.196 51.196 0 013.273 0C14.39 3.05 15 3.684 15 4.478v.113a49.488 49.488 0 00-6 0v-.113c0-.794.609-1.428 1.364-1.452zm-.355 5.945a.75.75 0 10-1.5.058l.347 9a.75.75 0 101.499-.058l-.346-9zm5.48.058a.75.75 0 10-1.498-.058l-.347 9a.75.75 0 001.5.058l.345-9z" clipRule="evenodd" />
@@ -190,13 +193,24 @@ const Dashboard = ({ socket, username, logout }) => {
       <div className={`${mobileView === "chat" ? "flex" : "hidden"} md:flex flex-1 flex-col bg-[#0f172a] relative z-10`}>
         {activeRoom ? (
             <>
+                {/* Header */}
                 <div className="h-16 border-b border-white/10 flex items-center justify-between px-4 md:px-6 bg-black/20 backdrop-blur-md z-10">
                     <div className="flex items-center gap-3">
-                        <button onClick={() => setMobileView("list")} className="md:hidden text-gray-400 hover:text-white">
+                        
+                        {/* === MOBILE BACK BUTTON (WITH BADGE) === */}
+                        <button onClick={() => setMobileView("list")} className="md:hidden text-gray-400 hover:text-white relative p-1">
                             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-6 h-6">
                               <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5" />
                             </svg>
+                            {/* The DOT that tells you to go back! */}
+                            {totalUnread > 0 && (
+                                <span className="absolute top-0 right-0 flex h-3 w-3">
+                                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+                                  <span className="relative inline-flex rounded-full h-3 w-3 bg-red-500"></span>
+                                </span>
+                            )}
                         </button>
+                        
                         <span className="text-2xl text-gray-400">#</span>
                         <span className="text-xl font-bold text-white truncate max-w-[150px] md:max-w-none">{activeRoom}</span>
                     </div>
